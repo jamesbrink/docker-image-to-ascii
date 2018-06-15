@@ -1,0 +1,45 @@
+FROM alpine:3.7
+
+# Build arguments.
+ARG VCS_REF
+ARG BUILD_DATE
+ARG IMAGE_TO_ASCII_VERSION="1.0.9"
+
+# Labels / Metadata.
+LABEL maintainer="James Brink, brink.james@gmail.com" \
+    decription="image-to-ascii" \
+    version="$IMAGE_TO_ASCII_VERSION" \
+    org.label-schema.name="image-to-ascii" \
+    org.label-schema.build-date=$BUILD_DATE \
+    org.label-schema.vcs-ref=$VCS_REF \
+    org.label-schema.vcs-url="https://github.com/jamesbrink/docker-image-to-ascii" \
+    org.label-schema.schema-version="1.0.0-rc1"
+
+# Create our group & user.
+RUN addgroup -g 1000 -S image-to-ascii \
+    && adduser -u 1000 -S -h /image-to-ascii -s /bin/sh -G image-to-ascii image-to-ascii
+
+# Install deps.
+RUN set -xe; \
+    apk --update add --no-cache --virtual .build-deps graphicsmagick-dev alpine-sdk; \
+    apk add --no-cache --virtual .runtime-deps graphicsmagick bash nodejs; \
+    npm install --global image-to-ascii-cli@$IMAGE_TO_ASCII_VERSION; \
+    apk del .build-deps; \
+    echo "${IMAGE_TO_ASCII_VERSION}" > /image-to-ascii/version.txt; \
+    chown image-to-ascii:image-to-ascii /image-to-ascii/version.txt;
+
+# Copy our entrypoint into the container.
+COPY ./docker-assets /
+
+# Setup our environment variables.
+ENV PATH="/usr/local/bin:$PATH" \
+    TERM=xterm 
+
+# Drop down to our unprivileged user.
+USER image-to-ascii
+
+# Set our working directory.
+WORKDIR /image-to-ascii
+
+# Set the entrypoint.
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
